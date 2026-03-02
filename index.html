@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ludbud event</title>
+    <style>
+        .stream-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px;
+    max-height: 100%;
+    height: 90%;
+    margin: 10px auto;
+    padding: 0;
+    flex: 1;
+}
+
+.stream-grid:fullscreen {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    gap: 0;
+}
+
+.stream {
+    position: relative;
+    background: #000000;
+    /* maintain 16:9 aspect ratio (Twitch standard) */
+    aspect-ratio: 16 / 9;
+}
+
+.stream-wrapper {
+    position: relative;
+    /* maintain 16:9 aspect ratio like other streams */
+    aspect-ratio: 16 / 9;
+    background: #000;
+}
+
+.stream-wrapper .stream {
+    width: 100%;
+    height: 100%;
+}
+
+.mute-btn {
+    position: absolute;
+    left: -70px;
+    top: 0;
+    background: rgba(0, 0, 0, 0.7);
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s;
+    z-index: 10;
+}
+
+.mute-btn-right {
+    left: auto;
+    right: -70px;
+}
+
+.mute-btn:hover {
+    background: rgba(0, 0, 0, 0.9);
+}
+
+.stream iframe {
+    width: 100%;
+    height: 100%;
+}
+
+/* optional visual highlight of active stream */
+.stream.active {
+    outline: 3px solid #4caf50;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 10px;
+    text-align: center;
+    background-color: #9147ff;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+body:fullscreen {
+    padding: 0;
+    background-color: #000;
+}
+
+h1 {
+    margin: 0 0 10px 0;
+    font-size: 1.5rem;
+}
+
+h1:fullscreen {
+    display: none;
+}
+
+.channel-inputs {
+    margin-bottom: 10px;
+}
+
+.channel-inputs:fullscreen {
+    display: none;
+}
+
+.channel-inputs button {
+    padding: 8px 16px;
+    margin-left: 10px;
+    background-color: #000;
+    color: #fff;
+    border: 2px solid #9147ff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.3s;
+}
+
+.channel-inputs button:hover {
+    background-color: #9147ff;
+    color: #000;
+}
+    </style>
+</head>
+<body>
+    <h1>ludbud events</h1>
+
+    <div class="streamer links">
+
+    </div>
+
+    <!-- note: Twitch blocks embeds when opened as file:// or without the correct parent
+         parameter.  Serve this page over HTTP (e.g. with Live Server or
+         `python -m http.server`) and set the parent value to your host/port. -->
+
+    <!-- input boxes for customizing channels -->
+    <div class="channel-inputs">
+        <label>Channel 1: <input type="text" id="chan1" placeholder="Ludwig"></label>
+        <label>Channel 2: <input type="text" id="chan2" placeholder="Valkyrae"></label>
+        <label>Channel 3: <input type="text" id="chan3" placeholder="Squeex"></label>
+        <label>Channel 4: <input type="text" id="chan4" placeholder="fuslie"></label>
+        <button id="loadBtn">Load channels</button>
+        <button id="fullscreenBtn">⛶ Fullscreen</button>
+    </div>
+
+    <div class="stream-grid">
+        <div class="stream-wrapper">
+            <button class="mute-btn" id="muteBtn1" title="Toggle mute">🔊</button>
+            <div class="stream" id="embed1"></div>
+        </div>
+        <div class="stream-wrapper">
+            <div class="stream" id="embed2"></div>
+            <button class="mute-btn mute-btn-right" id="muteBtn2" title="Toggle mute">🔊</button>
+        </div>
+        <div class="stream-wrapper">
+            <button class="mute-btn" id="muteBtn3" title="Toggle mute">🔊</button>
+            <div class="stream" id="embed3"></div>
+        </div>
+        <div class="stream-wrapper">
+            <div class="stream" id="embed4"></div>
+            <button class="mute-btn mute-btn-right" id="muteBtn4" title="Toggle mute">🔊</button>
+        </div>
+    </div>
+
+    <script src="https://embed.twitch.tv/embed/v1.js"></script>
+    <script>
+        const parents = [window.location.hostname];
+        const embeds = [];
+
+        function createEmbeds(channels) {
+            embeds.length = 0;
+            for (let i = 1; i <= 4; i++) {
+                const container = document.getElementById('embed' + i);
+                container.innerHTML = '';
+                embeds.push(new Twitch.Embed('embed' + i, {
+                    channel: channels[i - 1],
+                    parent: parents,
+                    width: '100%',
+                    height: '100%',
+                    layout: 'video', // use video-only layout to remove chat
+                    muted: i !== 1
+                }));
+            }
+
+            document.querySelectorAll('.stream').forEach((div, i) => {
+                div.onclick = () => setActive(i);
+            });
+        }
+
+        function setActive(index) {
+            embeds.forEach((embed, i) => {
+                const player = embed.getPlayer();
+                player.setMuted(i !== index);
+            });
+        }
+
+        document.getElementById('loadBtn').addEventListener('click', () => {
+            const channels = [
+                document.getElementById('chan1').value.trim(),
+                document.getElementById('chan2').value.trim(),
+                document.getElementById('chan3').value.trim(),
+                document.getElementById('chan4').value.trim()
+            ];
+            createEmbeds(channels);
+        });
+
+        // mute toggle buttons for all channels
+        function setupMuteBtn(btnId, embedIndex) {
+            document.getElementById(btnId).addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (embeds[embedIndex]) {
+                    const player = embeds[embedIndex].getPlayer();
+                    const isMuted = player.getMuted();
+                    player.setMuted(!isMuted);
+                    document.getElementById(btnId).textContent = !isMuted ? '🔇' : '🔊';
+                }
+            });
+        }
+
+        setupMuteBtn('muteBtn1', 0);
+        setupMuteBtn('muteBtn2', 1);
+        setupMuteBtn('muteBtn3', 2);
+        setupMuteBtn('muteBtn4', 3);
+
+        // fullscreen button
+        document.getElementById('fullscreenBtn').addEventListener('click', () => {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen();
+            } else if (elem.webkitRequestFullscreen) { // Safari
+                elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) { // IE11
+                elem.msRequestFullscreen();
+            }
+        });
+
+        // Exit fullscreen with ESC key (handled by browser)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                }
+            }
+        });
+
+        // initialize with default input values
+        createEmbeds([
+            document.getElementById('chan1').value,
+            document.getElementById('chan2').value,
+            document.getElementById('chan3').value,
+            document.getElementById('chan4').value
+        ]);
+
+        const iframes = document.querySelectorAll('.stream iframe');
+        function setActive(index) {
+            iframes.forEach((frame, i) => {
+                const chan = frame.parentElement.getAttribute('data-channel');
+                const muteParam = i === index ? 'false' : 'true';
+                frame.src = `https://www.twitch.tv/?channel=${chan}&parent=localhost&muted=${muteParam}`;
+            });
+        }
+
+        iframes.forEach((frame, i) => {
+            frame.addEventListener('click', () => setActive(i));
+        });
+    </script>
+</body>
+</html>
